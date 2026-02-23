@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AO3 Wrapped Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: monospace;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            flex: 1;
+            min-width: 200px;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-add {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-add:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+        
+        .btn-manual {
+            flex: 1;
+            min-width: 200px;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-manual:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+        
+        .btn-generate {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        .btn-generate:hover {
+            background: #138496;
+            transform: translateY(-2px);
+        }
+        
+        .help-text {
+            margin-top: 8px;
+            font-size: 13px;
+            color: #888;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            
+            button {
+                min-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎭 AO3 Wrapped Tracker</h1>
+        <p class="subtitle">Track your favorite fanfiction and generate your year-end reading report!</p>
+        
+        <form method="POST" action="/add_fic">
+            <div class="form-group">
+                <label for="urls">📚 Add AO3 Fanfiction URLs</label>
+                <textarea 
+                    id="urls" 
+                    name="urls" 
+                    rows="10" 
+                    placeholder="https://archiveofourown.org/works/12345678&#10;https://archiveofourown.org/works/87654321&#10;&#10;Enter one URL per line..."
+                ></textarea>
+                <p class="help-text">Paste AO3 URLs (one per line) and click "Add Fic(s)" to track them</p>
+            </div>
+            
+            <div class="button-group">
+                <button type="submit" class="btn-add">➕ Add Fic(s)</button>
+            </div>
+        </form>
+        
+        <div style="text-align: center; margin: 20px 0;">
+            <span style="color: #999;">— OR —</span>
+        </div>
+        
+        <div class="button-group">
+            <button type="button" class="btn-manual" onclick="window.location.href='/manual_entry'">✍️ Add Fic Manually</button>
+        </div>
+        
+        <form method="POST" action="/generate_report" style="margin-top: 30px;">
+            <div class="button-group">
+                <button type="submit" class="btn-generate">📊 Generate Wrapped Report</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

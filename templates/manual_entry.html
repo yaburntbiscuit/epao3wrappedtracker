@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Fic Entry - AO3 Wrapped</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        
+        .form-section {
+            margin-bottom: 30px;
+            padding-bottom: 30px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .form-section:last-of-type {
+            border-bottom: none;
+        }
+        
+        .section-title {
+            color: #667eea;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .required {
+            color: #dc3545;
+        }
+        
+        input[type="text"],
+        input[type="number"],
+        input[type="url"],
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        input[type="url"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .help-text {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 10px;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .checkbox-item label {
+            margin-bottom: 0;
+            font-weight: normal;
+            cursor: pointer;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        button {
+            padding: 15px 40px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-submit {
+            background: #28a745;
+            color: white;
+            flex: 1;
+        }
+        
+        .btn-submit:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+        
+        .btn-back {
+            background: #6c757d;
+            color: white;
+            padding: 15px 30px;
+        }
+        
+        .btn-back:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .checkbox-group {
+                grid-template-columns: 1fr;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✍️ Manual Fic Entry</h1>
+        <p class="subtitle">Add a fanfiction manually by filling out the form below</p>
+        
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div style="background: #fee; border-left: 4px solid #f44; padding: 12px; margin-bottom: 20px; border-radius: 4px; color: #c33;">
+                    {{ messages[0] }}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <form method="POST" action="/add_fic_manual">
+            
+            <!-- BASIC INFO SECTION -->
+            <div class="form-section">
+                <h2 class="section-title">📖 Basic Information</h2>
+                
+                <div class="form-group">
+                    <label for="url">AO3 URL <span class="required">*</span></label>
+                    <input type="url" id="url" name="url" required 
+                           placeholder="https://archiveofourown.org/works/12345678">
+                    <p class="help-text">The full AO3 link to the fanfiction</p>
+                </div>
+                
+                <div class="form-group">
+                    <label for="title">Title <span class="required">*</span></label>
+                    <input type="text" id="title" name="title" required 
+                           placeholder="Enter the fic title">
+                </div>
+                
+                <div class="form-group">
+                    <label for="word_count">Word Count <span class="required">*</span></label>
+                    <input type="number" id="word_count" name="word_count" required min="1"
+                           placeholder="e.g., 25000">
+                </div>
+                
+                <div class="form-group">
+                    <label for="authors">Author(s) <span class="required">*</span></label>
+                    <input type="text" id="authors" name="authors" required
+                           placeholder="AuthorName1, AuthorName2">
+                    <p class="help-text">Separate multiple authors with commas</p>
+                </div>
+            </div>
+            
+            <!-- RATING SECTION -->
+            <div class="form-section">
+                <h2 class="section-title">⭐ Rating</h2>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="rating_general" name="ratings" value="General Audiences">
+                        <label for="rating_general">General Audiences</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="rating_teen" name="ratings" value="Teen And Up Audiences">
+                        <label for="rating_teen">Teen And Up Audiences</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="rating_mature" name="ratings" value="Mature">
+                        <label for="rating_mature">Mature</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="rating_explicit" name="ratings" value="Explicit">
+                        <label for="rating_explicit">Explicit</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="rating_not_rated" name="ratings" value="Not Rated">
+                        <label for="rating_not_rated">Not Rated</label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ARCHIVE WARNINGS SECTION -->
+            <div class="form-section">
+                <h2 class="section-title">⚠️ Archive Warnings</h2>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="warning_chose_not" name="archive_warnings" 
+                               value="Creator Chose Not To Use Archive Warnings">
+                        <label for="warning_chose_not">Creator Chose Not To Use Archive Warnings</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="warning_none" name="archive_warnings" 
+                               value="No Archive Warnings Apply">
+                        <label for="warning_none">No Archive Warnings Apply</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="warning_violence" name="archive_warnings" 
+                               value="Graphic Depictions Of Violence">
+                        <label for="warning_violence">Graphic Depictions Of Violence</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="warning_rape" name="archive_warnings" 
+                               value="Rape/Non-Con">
+                        <label for="warning_rape">Rape/Non-Con</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="warning_underage_sex" name="archive_warnings" 
+                               value="Underage Sex">
+                        <label for="warning_underage_sex">Underage Sex</label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- CATEGORY SECTION -->
+            <div class="form-section">
+                <h2 class="section-title">💕 Category</h2>
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="category_gen" name="category" value="Gen">
+                        <label for="category_gen">Gen</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="category_ff" name="category" value="F/F">
+                        <label for="category_ff">F/F</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="category_fm" name="category" value="F/M">
+                        <label for="category_fm">F/M</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="category_mm" name="category" value="M/M">
+                        <label for="category_mm">M/M</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="category_multi" name="category" value="Multi">
+                        <label for="category_multi">Multi</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="category_other" name="category" value="Other">
+                        <label for="category_other">Other</label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- TAGS SECTION -->
+            <div class="form-section">
+                <h2 class="section-title">🏷️ Tags & Metadata</h2>
+                
+                <div class="form-group">
+                    <label for="fandoms">Fandom(s)</label>
+                    <textarea id="fandoms" name="fandoms" 
+                              placeholder="Harry Potter - J. K. Rowling, Marvel Cinematic Universe"></textarea>
+                    <p class="help-text">Separate multiple fandoms with commas</p>
+                </div>
+                
+                <div class="form-group">
+                    <label for="relationships">Relationship(s)</label>
+                    <textarea id="relationships" name="relationships"
+                              placeholder="Hermione Granger/Draco Malfoy, Harry Potter & Ron Weasley"></textarea>
+                    <p class="help-text">Separate multiple relationships with commas</p>
+                </div>
+                
+                <div class="form-group">
+                    <label for="characters">Character(s)</label>
+                    <textarea id="characters" name="characters"
+                              placeholder="Hermione Granger, Draco Malfoy, Harry Potter"></textarea>
+                    <p class="help-text">Separate multiple characters with commas</p>
+                </div>
+                
+                <div class="form-group">
+                    <label for="free_form_tags">Additional Tags (Freeform)</label>
+                    <textarea id="free_form_tags" name="free_form_tags" rows="4"
+                              placeholder="Fluff, Angst, Enemies to Lovers, Slow Burn"></textarea>
+                    <p class="help-text">Separate multiple tags with commas</p>
+                </div>
+            </div>
+            
+            <!-- SUBMIT BUTTONS -->
+            <div class="button-group">
+                <button type="submit" class="btn-submit">✅ Add Fic to Tracker</button>
+                <button type="button" class="btn-back" onclick="window.location.href='/'">← Back</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

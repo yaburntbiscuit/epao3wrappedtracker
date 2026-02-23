@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results - AO3 Wrapped</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 32px;
+        }
+        
+        .results-list {
+            list-style: none;
+            margin-bottom: 30px;
+        }
+        
+        .results-list li {
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            background: #f8f9fa;
+            border-left: 4px solid #28a745;
+        }
+        
+        .results-list li.error {
+            border-left-color: #dc3545;
+            background: #fff5f5;
+        }
+        
+        .download-section {
+            background: #f0f7ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .download-section h2 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .download-links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .download-link {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #17a2b8;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            text-align: center;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .download-link:hover {
+            background: #138496;
+            transform: translateY(-2px);
+        }
+        
+        .back-button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .back-button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .download-links {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{% if action == 'add' %}✅ Fics Added{% else %}📊 Report Generated{% endif %}</h1>
+        
+        <ul class="results-list">
+            {% for result in results %}
+                <li {% if '❌' in result %}class="error"{% endif %}>
+                    {{ result }}
+                </li>
+            {% endfor %}
+        </ul>
+        
+        {% if show_downloads %}
+        <div class="download-section">
+            <h2>📥 Download Your Wrapped Report</h2>
+            
+            <div class="download-links">
+                <a href="/download/AO3_Wrapped_Report.pdf" class="download-link">📄 PDF Report</a>
+                <a href="/download/wrapped_page1.png" class="download-link">🖼️ Page 1</a>
+                <a href="/download/wrapped_page2.png" class="download-link">🖼️ Page 2</a>
+                <a href="/download/wrapped_page3.png" class="download-link">🖼️ Page 3</a>
+                <a href="/download/wrapped_page4.png" class="download-link">🖼️ Page 4</a>
+                <a href="/download/wrapped_page5.png" class="download-link">🖼️ Page 5</a>
+                <a href="/download/wrapped_page6.png" class="download-link">🖼️ Page 6</a>
+            </div>
+        </div>
+        {% endif %}
+        
+        <a href="/back_to_tracker" class="back-button">← Back to Tracker</a>
+    </div>
+</body>
+</html>
