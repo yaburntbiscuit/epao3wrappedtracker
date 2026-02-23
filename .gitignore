@@ -1,0 +1,11 @@
+google_credentials.json
+
+.venv/
+
+__pycache__/
+
+data/*.csv
+
+output/
+
+*.pyc

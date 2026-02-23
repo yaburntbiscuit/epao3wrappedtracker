@@ -14,7 +14,56 @@ from reportlab.lib.units import inch
 from reportlab.lib.pagesizes import A4
 from PIL import Image, ImageDraw, ImageFont
 from functools import wraps
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
+import io
 
+# Google Drive setup
+SCOPES = ['https://www.googleapis.com/auth/drive']
+
+SERVICE_ACCOUNT_FILE = "google_credentials.json"
+
+credentials = service_account.Credentials.from_service_account_file(
+    SERVICE_ACCOUNT_FILE,
+    scopes=SCOPES
+)
+
+drive_service = build('drive','v3',credentials=credentials)
+
+def download_tracker_from_drive():
+
+    file_id = "139y1kGDj7mDK6PAS77i2SOjyVM6ZkszJ"
+
+    request = drive_service.files().get_media(fileId=file_id)
+
+    fh = io.BytesIO()
+
+    downloader = MediaIoBaseDownload(fh, request)
+
+    done = False
+
+    while done is False:
+        status, done = downloader.next_chunk()
+
+    with open(TRACKER_FILE_PATH,'wb') as f:
+        f.write(fh.getvalue())
+
+def upload_tracker_to_drive():
+
+    file_id = "139y1kGDj7mDK6PAS77i2SOjyVM6ZkszJ"
+
+    media = MediaFileUpload(
+        TRACKER_FILE_PATH,
+        mimetype='text/csv'
+    )
+
+    drive_service.files().update(
+        fileId=file_id,
+        media_body=media
+    ).execute()
+
+# Flask setup
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-this-later'  # We'll make this more secure when we add password protection
 
