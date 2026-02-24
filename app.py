@@ -18,50 +18,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
 import io
-
-# Google Drive setup
-SCOPES = ['https://www.googleapis.com/auth/drive']
-
-SERVICE_ACCOUNT_FILE = "google_credentials.json"
-
-credentials = service_account.Credentials.from_service_account_file(
-    SERVICE_ACCOUNT_FILE,
-    scopes=SCOPES
-)
-
-drive_service = build('drive','v3',credentials=credentials)
-
-def download_tracker_from_drive():
-
-    file_id = "139y1kGDj7mDK6PAS77i2SOjyVM6ZkszJ"
-
-    request = drive_service.files().get_media(fileId=file_id)
-
-    fh = io.BytesIO()
-
-    downloader = MediaIoBaseDownload(fh, request)
-
-    done = False
-
-    while done is False:
-        status, done = downloader.next_chunk()
-
-    with open(TRACKER_FILE_PATH,'wb') as f:
-        f.write(fh.getvalue())
-
-def upload_tracker_to_drive():
-
-    file_id = "139y1kGDj7mDK6PAS77i2SOjyVM6ZkszJ"
-
-    media = MediaFileUpload(
-        TRACKER_FILE_PATH,
-        mimetype='text/csv'
-    )
-
-    drive_service.files().update(
-        fileId=file_id,
-        media_body=media
-    ).execute()
+import time
 
 # Flask setup
 app = Flask(__name__)
@@ -80,6 +37,80 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # File paths
 TRACKER_FILE_PATH = os.path.join(DATA_DIR, 'AO3_fanfiction_tracker.csv')
 FONT_PATH = os.path.join(STATIC_DIR, 'LeagueSpartan.otf')
+
+# Google Drive setup
+SCOPES = ['https://www.googleapis.com/auth/drive']
+
+SERVICE_ACCOUNT_FILE = os.path.join(
+    BASE_DIR,
+    "google_credentials.json"
+)
+
+credentials = service_account.Credentials.from_service_account_file(
+    SERVICE_ACCOUNT_FILE,
+    scopes=SCOPES
+)
+
+drive_service = build('drive','v3',credentials=credentials)
+
+# Sync settings
+SYNC_INTERVAL = 300  # 5 minutes in seconds
+IS_RENDER = os.environ.get('RENDER') is not None
+
+def download_tracker_from_drive():
+    """Download tracker from Google Drive with timeout and error handling"""
+    try:
+        file_id = "139y1kGDj7mDK6PAS77i2SOjyVM6ZkszJ"
+        
+        request = drive_service.files().get_media(fileId=file_id)
+        fh = io.BytesIO()
+        
+        # Add timeout to the downloader
+        downloader = MediaIoBaseDownload(fh, request, chunksize=1024*1024)  # 1MB chunks
+        
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+            if status:
+                print(f"Download progress: {int(status.progress() * 100)}%")
+        
+        with open(TRACKER_FILE_PATH, 'wb') as f:
+            f.write(fh.getvalue())
+            
+        print(f"Successfully downloaded tracker from Google Drive ({len(fh.getvalue())} bytes)")
+        
+    except Exception as e:
+        print(f"Error downloading from Google Drive: {e}")
+        raise
+
+def upload_tracker_to_drive(file_path=None):
+    """Upload tracker to Google Drive with error handling"""
+    if file_path is None:
+        file_path = TRACKER_FILE_PATH
+    try:
+        file_id = "139y1kGDj7mDK6PAS77i2SOjyVM6ZkszJ"
+        
+        media = MediaFileUpload(
+            file_path,
+            mimetype='text/csv',
+            resumable=True  # Enable resumable uploads for reliability
+        )
+        
+        drive_service.files().update(
+            fileId=file_id,
+            media_body=media
+        ).execute()
+        
+        file_size = os.path.getsize(file_path)
+        print(f"Successfully uploaded tracker to Google Drive ({file_size} bytes)")
+        
+    except Exception as e:
+        print(f"Error uploading to Google Drive: {e}")
+        print(f"File path: {file_path}")
+        print(f"File exists: {os.path.exists(file_path)}")
+        if os.path.exists(file_path):
+            print(f"File size: {os.path.getsize(file_path)}")
+        raise
 
 # Font setup
 font_144 = ImageFont.truetype(FONT_PATH, 144)
@@ -280,30 +311,101 @@ def extract_fic_data(url):
 # HELPER FUNCTIONS FOR WEB APP
 # ============================================
 
+# Global variable to track if we need to sync with Drive
+LAST_SYNC_TIME = 0
+SYNC_INTERVAL = 300  # 5 minutes in seconds
+
 def load_tracker():
-    """Load the tracker CSV file"""
-    if os.path.exists(TRACKER_FILE_PATH):
+    """Load the tracker CSV file with smart caching"""
+    if IS_RENDER:
+        # On Render, always download from Drive since local files don't persist
+        try:
+            download_tracker_from_drive()
+        except Exception as e:
+            print(f"Error: Could not download from Google Drive: {e}")
+            # Return empty DataFrame if Drive fails
+            return pd.DataFrame(columns=[
+                'url', 'title', 'word_count', 'authors', 'ratings', 'archive_warnings', 'category',
+                'fandoms', 'relationships', 'characters', 'free_form_tags'
+            ])
+        
+        # Load the freshly downloaded file
         df = pd.read_csv(TRACKER_FILE_PATH)
         # Convert string representations of lists back to actual lists
         for col in LIST_COLUMNS:
             if col in df.columns:
                 df[col] = df[col].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
         return df
-    else:
-        # Create empty DataFrame
+    
+    # Local development: use caching
+    current_time = time.time()
+    
+    # Check if local file exists and is recent enough (within last 5 minutes)
+    if os.path.exists(TRACKER_FILE_PATH):
+        file_mod_time = os.path.getmtime(TRACKER_FILE_PATH)
+        if (current_time - file_mod_time) < SYNC_INTERVAL:
+            # File is recent, load from local
+            df = pd.read_csv(TRACKER_FILE_PATH)
+            # Convert string representations of lists back to actual lists
+            for col in LIST_COLUMNS:
+                if col in df.columns:
+                    df[col] = df[col].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
+            return df
+    
+    # File doesn't exist or is old, download from Drive
+    try:
+        download_tracker_from_drive()
+    except Exception as e:
+        print(f"Warning: Could not sync with Google Drive: {e}")
+        # If Drive fails but local file exists, use local file
+        if os.path.exists(TRACKER_FILE_PATH):
+            df = pd.read_csv(TRACKER_FILE_PATH)
+            # Convert string representations of lists back to actual lists
+            for col in LIST_COLUMNS:
+                if col in df.columns:
+                    df[col] = df[col].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
+            return df
+        # If no local file either, create empty DataFrame
         return pd.DataFrame(columns=[
             'url', 'title', 'word_count', 'authors', 'ratings', 'archive_warnings', 'category',
             'fandoms', 'relationships', 'characters', 'free_form_tags'
         ])
+    
+    # Load the freshly downloaded file
+    df = pd.read_csv(TRACKER_FILE_PATH)
+    # Convert string representations of lists back to actual lists
+    for col in LIST_COLUMNS:
+        if col in df.columns:
+            df[col] = df[col].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
+    return df
 
 
 def save_tracker(df):
-    """Save the tracker DataFrame to CSV"""
+    """Save the tracker DataFrame to CSV and sync with Google Drive"""
+    global LAST_SYNC_TIME
     df_to_save = df.copy()
     for col in LIST_COLUMNS:
         if col in df_to_save.columns:
             df_to_save[col] = df_to_save[col].apply(lambda x: str(x) if isinstance(x, list) else x)
-    df_to_save.to_csv(TRACKER_FILE_PATH, index=False)
+    
+    if not IS_RENDER:
+        df_to_save.to_csv(TRACKER_FILE_PATH, index=False)
+        # On local, try to upload but don't fail if it doesn't work
+        try:
+            upload_tracker_to_drive()
+            LAST_SYNC_TIME = time.time()  # Update sync time after successful upload
+        except Exception as e:
+            print(f"Warning: Failed to sync with Google Drive, but local save succeeded: {e}")
+    else:
+        # On Render, save temporarily to upload, then delete
+        temp_path = TRACKER_FILE_PATH + '.temp'
+        df_to_save.to_csv(temp_path, index=False)
+        try:
+            upload_tracker_to_drive(temp_path)
+            LAST_SYNC_TIME = time.time()  # Update sync time after successful upload
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
 
 
 def add_fic_to_tracker(url):
@@ -318,7 +420,10 @@ def add_fic_to_tracker(url):
     
     new_fic_series = pd.Series(fic_details).reindex(df.columns)
     df = pd.concat([df, pd.DataFrame([new_fic_series])], ignore_index=True)
-    save_tracker(df)
+    try:
+        save_tracker(df)
+    except Exception as e:
+        return False, f"❌ Failed to save fic: {e}"
     
     return True, f"✅ Successfully added: {fic_details.get('title', 'Unknown')}"
 
@@ -330,7 +435,10 @@ def add_fic_manually(fic_data):
     # Create series with provided data
     new_fic_series = pd.Series(fic_data).reindex(df.columns)
     df = pd.concat([df, pd.DataFrame([new_fic_series])], ignore_index=True)
-    save_tracker(df)
+    try:
+        save_tracker(df)
+    except Exception as e:
+        return False, f"❌ Failed to save fic: {e}"
     
     return True, f"✅ Successfully added: {fic_data.get('title', 'Unknown')}"
 
@@ -681,5 +789,6 @@ def add_fic_manual():
         return render_template('manual_entry.html')
 
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
