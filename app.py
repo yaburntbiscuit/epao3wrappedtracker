@@ -37,9 +37,10 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # File paths
 TRACKER_FILE_PATH = os.path.join(DATA_DIR, 'AO3_fanfiction_tracker.csv')
 FONT_PATH = os.path.join(STATIC_DIR, 'LeagueSpartan.otf')
+QUEUE_FILE_PATH = os.path.join(DATA_DIR, 'fic_queue.txt')
 
 # Google Drive setup
-SCOPES = ['https://www.googleapis.com/auth/drive']
+SCOPES = ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/gmail.readonly']
 
 SERVICE_ACCOUNT_FILE = os.path.join(
     BASE_DIR,
@@ -55,7 +56,6 @@ drive_service = build('drive','v3',credentials=credentials)
 
 # Sync settings
 SYNC_INTERVAL = 300  # 5 minutes in seconds
-IS_RENDER = os.environ.get('RENDER') is not None
 
 def download_tracker_from_drive():
     """Download tracker from Google Drive with timeout and error handling"""
@@ -320,27 +320,6 @@ SYNC_INTERVAL = 300  # 5 minutes in seconds
 
 def load_tracker():
     """Load the tracker CSV file with smart caching"""
-    if IS_RENDER:
-        # On Render, always download from Drive since local files don't persist
-        try:
-            download_tracker_from_drive()
-        except Exception as e:
-            print(f"Error: Could not download from Google Drive: {e}")
-            # Return empty DataFrame if Drive fails
-            return pd.DataFrame(columns=[
-                'url', 'title', 'word_count', 'authors', 'ratings', 'archive_warnings', 'category',
-                'fandoms', 'relationships', 'characters', 'free_form_tags'
-            ])
-        
-        # Load the freshly downloaded file
-        df = pd.read_csv(TRACKER_FILE_PATH)
-        # Convert string representations of lists back to actual lists
-        for col in LIST_COLUMNS:
-            if col in df.columns:
-                df[col] = df[col].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
-        return df
-    
-    # Local development: use caching
     current_time = time.time()
     
     # Check if local file exists and is recent enough (within last 5 minutes)
@@ -385,30 +364,20 @@ def load_tracker():
 
 def save_tracker(df):
     """Save the tracker DataFrame to CSV and sync with Google Drive"""
-    global LAST_SYNC_TIME
     df_to_save = df.copy()
     for col in LIST_COLUMNS:
         if col in df_to_save.columns:
             df_to_save[col] = df_to_save[col].apply(lambda x: str(x) if isinstance(x, list) else x)
+    df_to_save.to_csv(TRACKER_FILE_PATH, index=False)
     
-    if not IS_RENDER:
-        df_to_save.to_csv(TRACKER_FILE_PATH, index=False)
-        # On local, try to upload but don't fail if it doesn't work
-        try:
-            upload_tracker_to_drive()
-            LAST_SYNC_TIME = time.time()  # Update sync time after successful upload
-        except Exception as e:
-            print(f"Warning: Failed to sync with Google Drive, but local save succeeded: {e}")
-    else:
-        # On Render, save temporarily to upload, then delete
-        temp_path = TRACKER_FILE_PATH + '.temp'
-        df_to_save.to_csv(temp_path, index=False)
-        try:
-            upload_tracker_to_drive(temp_path)
-            LAST_SYNC_TIME = time.time()  # Update sync time after successful upload
-        finally:
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
+    # Upload updated tracker to Google Drive immediately when data changes
+    try:
+        upload_tracker_to_drive()
+        global LAST_SYNC_TIME
+        LAST_SYNC_TIME = time.time()  # Update sync time after successful upload
+    except Exception as e:
+        print(f"Warning: Failed to sync with Google Drive, but local save succeeded: {e}")
+        # Don't fail the entire operation if Drive sync fails
 
 
 def add_fic_to_tracker(url):
@@ -431,19 +400,27 @@ def add_fic_to_tracker(url):
     return True, f"✅ Successfully added: {fic_details.get('title', 'Unknown')}"
 
 
-def add_fic_manually(fic_data):
-    """Add a fic to the tracker manually (from form submission)"""
-    df = load_tracker()
+def process_queued_fics():
+    """Process queued fic URLs from file"""
+    if not os.path.exists(QUEUE_FILE_PATH):
+        return [], "No queued fics to process."
     
-    # Create series with provided data
-    new_fic_series = pd.Series(fic_data).reindex(df.columns)
-    df = pd.concat([df, pd.DataFrame([new_fic_series])], ignore_index=True)
-    try:
-        save_tracker(df)
-    except Exception as e:
-        return False, f"❌ Failed to save fic: {e}"
+    with open(QUEUE_FILE_PATH, 'r') as f:
+        urls = [line.strip() for line in f if line.strip()]
     
-    return True, f"✅ Successfully added: {fic_data.get('title', 'Unknown')}"
+    if not urls:
+        return [], "No queued fics to process."
+    
+    messages = []
+    for url in urls:
+        success, message = add_fic_to_tracker(url)
+        messages.append(message)
+    
+    # Clear the queue file
+    with open(QUEUE_FILE_PATH, 'w') as f:
+        f.write('')
+    
+    return messages, f"Processed {len(urls)} queued fics."
 
 
 # ============================================
@@ -477,22 +454,32 @@ def index():
     """Main page"""
     df = load_tracker()
     total_fics = len(df)
-    return render_template('index1.html', total_fics=total_fics)
+    
+    # Check queue
+    queued_count = 0
+    if os.path.exists(QUEUE_FILE_PATH):
+        with open(QUEUE_FILE_PATH, 'r') as f:
+            queued_count = len([line for line in f if line.strip()])
+    
+    return render_template('index1.html', total_fics=total_fics, queued_count=queued_count)
 
 
-@app.route('/add_fic', methods=['POST'])
+@app.route('/add_to_queue', methods=['POST'])
 @login_required
-def add_fic():
-    """Handle adding fics from the form"""
+def add_to_queue():
+    """Add URLs to processing queue"""
     urls_input = request.form.get('urls', '')
     urls = [url.strip() for url in urls_input.split('\n') if url.strip()]
     
-    messages = []
-    for url in urls:
-        success, message = add_fic_to_tracker(url)
-        messages.append(message)
+    if not urls:
+        return render_template('results.html', action='queue', results=["No URLs provided."], show_downloads=False)
     
-    return render_template('results.html', action='add', results=messages, show_downloads=False)
+    # Append to queue file
+    with open(QUEUE_FILE_PATH, 'a') as f:
+        for url in urls:
+            f.write(url + '\n')
+    
+    return render_template('results.html', action='queue', results=[f"✅ Added {len(urls)} URLs to processing queue."], show_downloads=False)
 
 
 @app.route('/generate_report', methods=['POST'])
